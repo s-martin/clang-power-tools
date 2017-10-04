@@ -21,10 +21,12 @@ namespace ClangPowerTools
     private IVsDocDataFileChangeControl mFileChangeControl;
 
     private IntPtr mDocData = new IntPtr();
-    
+
     #endregion
 
     #region Ctor
+
+    public SilentFileChanger() { }
 
     public SilentFileChanger(IServiceProvider aSite, string aDocument, bool aReloadDocument)
     {
@@ -32,6 +34,7 @@ namespace ClangPowerTools
       mDocumentFileName = aDocument;
       mReloadDocument = aReloadDocument;
     }
+
     #endregion
 
     #region Public methods

@@ -11,6 +11,10 @@ using EnvDTE80;
 using Microsoft.VisualStudio.Shell.Interop;
 using System.Diagnostics;
 using System.Text;
+using EnvDTE;
+using System.IO;
+using System.Security.Permissions;
+using System.Collections.Generic;
 
 namespace ClangPowerTools
 {
@@ -108,6 +112,8 @@ namespace ClangPowerTools
     /// </summary>
     /// <param name="sender">Event sender.</param>
     /// <param name="e">Event args.</param>
+
+    [PermissionSet(SecurityAction.Demand, Name = "FullTrust")]
     private void MenuItemCallback(object sender, EventArgs e)
     {
       System.Threading.Tasks.Task.Run(() =>
@@ -134,26 +140,31 @@ namespace ClangPowerTools
             Vs15SolutionLoader solutionLoader = new Vs15SolutionLoader(mPackage);
             solutionLoader.EnsureSolutionProjectsAreLoaded();
           }
-          bool succesParse = false;
-          mOutputManager.AddMessage($"\n{OutputWindowConstants.kStart} {OutputWindowConstants.kTidyCodeCommand}\n");
-          foreach (var item in mItemsCollector.GetItems)
+          using (var guard = new SilentFileChangerGuard())
           {
-            string script = scriptBuilder.GetScript(item.Item1, item.Item1.GetName());
-            using (var guard = new SilentFileChangerGuard(mPackage, item.Item1.GetPath(), true))
+            foreach (Document doc in mDte.Documents)
+              guard.Add(new SilentFileChanger(mPackage, Path.Combine(doc.Path, doc.Name), true));
+
+            bool succesParse = false;
+            mOutputManager.AddMessage($"\n{OutputWindowConstants.kStart} {OutputWindowConstants.kTidyCodeCommand}\n");
+            foreach (var item in mItemsCollector.GetItems)
+            {
+              string script = scriptBuilder.GetScript(item.Item1, item.Item1.GetName());
               powerShell.Invoke(script);
 
-            ErrorParser errorParser = new ErrorParser(mPackage, item.Item1);
-            succesParse = errorParser.Start(mOutputMessages.ToString());
-            if( !succesParse )
-            {
-              mOutputManager.AddMessage(ErrorParserConstants.kMissingClangMessage);
-              break;
+              ErrorParser errorParser = new ErrorParser(mPackage, item.Item1);
+              succesParse = errorParser.Start(mOutputMessages.ToString());
+              if (!succesParse)
+              {
+                mOutputManager.AddMessage(ErrorParserConstants.kMissingClangMessage);
+                break;
+              }
+              mErrorsManager.AddErrors(errorParser.Errors);
+              mOutputMessages.Clear();
             }
-            mErrorsManager.AddErrors(errorParser.Errors);
-            mOutputMessages.Clear();
+            if (succesParse)
+              mOutputManager.AddMessage($"\n{OutputWindowConstants.kDone} {OutputWindowConstants.kTidyCodeCommand}\n");
           }
-          if (succesParse)
-            mOutputManager.AddMessage($"\n{OutputWindowConstants.kDone} {OutputWindowConstants.kTidyCodeCommand}\n");
         }
         catch (Exception exception)
         {
