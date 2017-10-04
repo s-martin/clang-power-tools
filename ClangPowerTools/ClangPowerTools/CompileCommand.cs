@@ -127,7 +127,6 @@ namespace ClangPowerTools
         try
         {
           mDte.Documents.SaveAll();
-
           if (kVs15Version == mVsVersion )
           {
             Vs15SolutionLoader solutionLoader = new Vs15SolutionLoader(mPackage);

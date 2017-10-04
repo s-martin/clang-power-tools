@@ -129,7 +129,6 @@ namespace ClangPowerTools
         try
         {
           mDte.Documents.SaveAll();
-
           if (kVs15Version == mVsVersion)
           {
             Vs15SolutionLoader solutionLoader = new Vs15SolutionLoader(mPackage);
@@ -140,11 +139,11 @@ namespace ClangPowerTools
           foreach (var item in mItemsCollector.GetItems)
           {
             string script = scriptBuilder.GetScript(item.Item1, item.Item1.GetName());
-            powerShell.Invoke(script);
+            using (var guard = new SilentFileChangerGuard(mPackage, item.Item1.GetPath(), true))
+              powerShell.Invoke(script);
 
             ErrorParser errorParser = new ErrorParser(mPackage, item.Item1);
             succesParse = errorParser.Start(mOutputMessages.ToString());
-
             if( !succesParse )
             {
               mOutputManager.AddMessage(ErrorParserConstants.kMissingClangMessage);
